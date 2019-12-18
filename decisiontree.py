@@ -3,6 +3,61 @@ from costfunctions import calculate_probabilities, gini, entropy
 import parsing
 
 
+def get_training_and_test_sets(dataset, training_ratio):
+    """
+    Split a dataset randomly in two.
+
+    The first set will have training_ratio elements comapred to the full
+    dataset.
+    """
+    import random
+    test_set = dataset[:]
+    training_set = []
+    for _ in range(int(training_ratio * len(dataset))):
+        training_set.append(test_set.pop(random.randrange(len(test_set))))
+    return training_set, test_set
+
+
+def test_performance(dataset, training_ratio, scoref, beta, rounds=100):
+    """Test the decision tree's performance."""
+    max_prob_success, success, failure = 0, 0, 0
+    for _ in range(rounds):
+        # Split dataset and train decision tree
+        training, test = get_training_and_test_sets(dataset, training_ratio)
+        tree = Node(training)
+        tree.build_tree(gini, beta)
+        from printtree import printtree
+        #printtree(tree)
+        # Test decision tree
+        for elem in test:
+            probs = list(tree.classify(elem[:-1]).items())
+            probs.sort(key=lambda x: x[1])
+            if elem[-1] == probs[0][0]:
+                max_prob_success += 1
+            elif elem[-1] in map(lambda x: x[0], probs):
+                success += 1
+            else:
+                failure += 1
+
+        for elem in test:
+            probs = tree.classify(elem[:-1])
+
+    # Output results
+    tested = len(test) * rounds
+    print("********* Test results *********")
+    print("Function: %s" % str(scoref).split()[1])
+    print("Beta: %.2f" % beta)
+    print("Test rounds: %d" % rounds)
+    print("Test set size: %d" % len(test))
+    print("Element matched maximum probability: %d (%.2f%%)" %
+          (max_prob_success, float(max_prob_success) / tested * 100))
+    print("Element matched non-maximum probability: %d (%.2f%%)" %
+          (success, float(success) / tested * 100))
+    print("Element did not match: %d (%.2f%%)" %
+          (failure, float(failure) / tested * 100))
+    print("********************************")
+
+
 class Node():
     """Describes a node in a decision tree."""
 
@@ -22,7 +77,7 @@ class Node():
         self.fc = None
         self.probs = {}
 
-    def build_tree(self, scoref, beta=0):
+    def build_tree(self, scoref, beta):
         """
         Build the decision tree from this node downwards.
 
@@ -36,7 +91,7 @@ class Node():
             count += self.fc.build_tree(scoref, beta)
         return 1 if count == 0 else count
 
-    def build_tree_ite(self, scoref, beta=0):
+    def build_tree_ite(self, scoref, beta):
         """
         Build the decision tree from this node downwards iteratively (BFS).
 
@@ -55,6 +110,19 @@ class Node():
                 pending_nodes.append(node.fc)
         return count
 
+    def classify(self, object):
+        """Return the classification probability for a given object."""
+        # No need to check both children, if one is None, both are
+        if self.tc is None and self.probs is None:
+            raise Exception("Decision tree is not built")
+        if len(self.probs.keys()) != 0:  # Base case
+            return self.probs
+
+        if Node._fulfills_criteria(object[self.col], self.value):
+            return self.tc.classify(object)
+
+        return self.fc.classify(object)
+
     def _find_children(self, scoref, beta):
         """Divide a node and assign the partitions as children if necessary."""
         curr_impurity = scoref(self.dataset)
@@ -68,7 +136,6 @@ class Node():
                     scoref(s2) * len(s2) / len(self.dataset)
                 if goodness > best[0]:
                     best = (goodness, col, value, s1, s2)
-
         if best[0] > beta:  # Node should be divided, assign children
             self.col, self.value = best[1:3]
             self.tc, self.fc = Node(best[3]), Node(best[4])
@@ -125,7 +192,10 @@ if __name__ == '__main__':
         sys.exit(0)
 
     input = parsing.read_file(sys.argv[1])
-    tree = Node(input)
-    tree.build_tree(gini, 0.1)
-    from printtree import printtree
-    printtree(tree)
+    test_performance(input, 0.5, gini, 0.2)
+    test_performance(input, 0.5, gini, 0.1)
+    test_performance(input, 0.5, gini, 0)
+    print("\n")
+    test_performance(input, 0.8, gini, 0.2)
+    test_performance(input, 0.5, gini, 0.2)
+    test_performance(input, 0.3, gini, 0.2)

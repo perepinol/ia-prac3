@@ -20,7 +20,7 @@ def is_numerical(value):
     return False
 
 
-def read_file(filename, has_headers=False):
+def read_file(filename, has_headers=False, rowsep='\t'):
     """
     Read matrix from file.
 
@@ -34,7 +34,7 @@ def read_file(filename, has_headers=False):
         for line in fh:
             line = list(map(
                 lambda x: cast_str(x),
-                line.strip().split('\t')
+                line.strip().split(rowsep)
             ))
             if has_headers:
                 firstcol.append(line[0])
