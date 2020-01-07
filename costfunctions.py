@@ -18,7 +18,7 @@ def calculate_probabilities(dataset):
     return count
 
 
-def gini(dataset):
+def gini_impurity(dataset):
     """Calculate the Gini index for the given dataset."""
     from functools import reduce
     probs = calculate_probabilities(dataset)

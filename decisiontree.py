@@ -1,5 +1,5 @@
 """Build and classify elements using a decision tree."""
-from costfunctions import calculate_probabilities, gini, entropy
+from costfunctions import calculate_probabilities, gini_impurity, entropy
 import parsing
 
 
@@ -25,7 +25,7 @@ def test_performance(dataset, training_ratio, scoref, beta, rounds=10000):
         # Split dataset and train decision tree
         training, test = get_training_and_test_sets(dataset, training_ratio)
         tree = Node(training)
-        tree.build_tree(gini, beta)
+        tree.build_tree(scoref, beta)
 
         # Test decision tree
         for elem in test:
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     print("| Beta | Top matches | Other matches | Failures |")
     best_beta, less_failure = None, None
     for beta in range(101):
-        res = test_performance(input, 0.5, gini, beta / 100.0)
+        res = test_performance(input, 0.5, gini_impurity, beta / 100.0)
         print("| %3.2f | %10.2f%% | %12.2f%% | %7.2f%% |" % (
             res['beta'],
             res['top_matches'] * 100,
@@ -263,7 +263,7 @@ if __name__ == '__main__':
     print("| Training size | Test size | Top matches | Other matches | " +
           "Failures |")
     for set_size in range(11):
-        res = test_performance(input, set_size / 10.0, gini, best_beta)
+        res = test_performance(input, set_size / 10.0, gini_impurity, best_beta)
         print("| %13d | %9d | %10.2f%% | %12.2f%% | %7.2f%% |" % (
             res['training_set_size'],
             res['test_set_size'],
