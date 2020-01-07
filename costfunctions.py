@@ -31,7 +31,7 @@ def entropy(dataset):
     from functools import reduce
     probs = calculate_probabilities(dataset)
     entropies = [p * log(p, 2) for p in probs.values()]
-    return -1 * reduce(lambda x, y: x + y, entropies)
+    return -1 * reduce(lambda x, y: x + y, entropies, 0)
 
 
 def euclidean_sqr(p1, p2):

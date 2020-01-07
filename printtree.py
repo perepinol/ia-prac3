@@ -1,6 +1,6 @@
 def printtree(tree, indent=''):
     # Is this a leaf node?
-    if len(tree.probs.keys()) != 0:
+    if tree.probs is not None:
         print(indent+str(tree.probs))
     else:
         # Print the criteria

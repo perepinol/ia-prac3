@@ -18,7 +18,7 @@ def get_training_and_test_sets(dataset, training_ratio):
     return training_set, test_set
 
 
-def test_performance(dataset, training_ratio, scoref, beta, rounds=100):
+def test_performance(dataset, training_ratio, scoref, beta, rounds=10000):
     """Test the decision tree's performance."""
     max_prob_success, success, failure = 0, 0, 0
     for _ in range(rounds):
@@ -26,36 +26,41 @@ def test_performance(dataset, training_ratio, scoref, beta, rounds=100):
         training, test = get_training_and_test_sets(dataset, training_ratio)
         tree = Node(training)
         tree.build_tree(gini, beta)
-        from printtree import printtree
-        #printtree(tree)
+
         # Test decision tree
         for elem in test:
             probs = list(tree.classify(elem[:-1]).items())
             probs.sort(key=lambda x: x[1])
-            if elem[-1] == probs[0][0]:
-                max_prob_success += 1
-            elif elem[-1] in map(lambda x: x[0], probs):
-                success += 1
-            else:
+
+            # If expected class is not in probs, classification failed
+            if len(probs) == 0 or elem[-1] not in map(lambda x: x[0], probs):
                 failure += 1
+
+            # If expected class is first, it is a top match
+            elif elem[-1] == probs[0][0]:
+                max_prob_success += 1
+
+            # If expected class is not first, it is simple match
+            else:
+                success += 1
 
         for elem in test:
             probs = tree.classify(elem[:-1])
 
     # Output results
     tested = len(test) * rounds
-    print("********* Test results *********")
-    print("Function: %s" % str(scoref).split()[1])
-    print("Beta: %.2f" % beta)
-    print("Test rounds: %d" % rounds)
-    print("Test set size: %d" % len(test))
-    print("Element matched maximum probability: %d (%.2f%%)" %
-          (max_prob_success, float(max_prob_success) / tested * 100))
-    print("Element matched non-maximum probability: %d (%.2f%%)" %
-          (success, float(success) / tested * 100))
-    print("Element did not match: %d (%.2f%%)" %
-          (failure, float(failure) / tested * 100))
-    print("********************************")
+
+    return {
+        'function': str(scoref).split()[1],
+        'beta': beta,
+        'rounds': rounds,
+        'set_size': len(dataset),
+        'training_set_size': len(training),
+        'test_set_size': len(test),
+        'top_matches': 0 if tested == 0 else float(max_prob_success) / tested,
+        'other_matches': 0 if tested == 0 else float(success) / tested,
+        'failed_matches': 0 if tested == 0 else float(failure) / tested
+    }
 
 
 class Node():
@@ -75,7 +80,7 @@ class Node():
         self.value = value
         self.tc = None
         self.fc = None
-        self.probs = {}
+        self.probs = None
 
     def build_tree(self, scoref, beta):
         """
@@ -110,12 +115,43 @@ class Node():
                 pending_nodes.append(node.fc)
         return count
 
+    def prune(self, scoref, threshold):
+        """
+        Prune the tree following a bottom-up strategy.
+
+        Return the number of prunes made.
+        """
+        if not self._is_built():
+            raise Exception("Decision tree is not built")
+
+        # Base case: node is a leaf (otherwise, node always has two children)
+        if self._is_leaf():
+            return 0
+
+        # Run prune on children
+        pruned = self.tc.prune(scoref, threshold) + \
+                 self.fc.prune(scoref, threshold)
+
+        # If both children are leaves, see if they can be joined
+        if self.tc._is_leaf() and self.fc._is_leaf():
+            # Get impurity for the three nodes
+            imp, tc_imp, fc_imp = map(scoref,
+                map(lambda n: n.dataset, [self, self.tc, self.fc])
+            )
+            # If change in impurity is below threshold, remove leaves
+            if imp - tc_imp - fc_imp < threshold:
+                self.tc, self.fc = None, None
+                self.probs = calculate_probabilities(self.dataset)
+                return pruned + 1
+
+        return pruned
+
     def classify(self, object):
         """Return the classification probability for a given object."""
-        # No need to check both children, if one is None, both are
-        if self.tc is None and self.probs is None:
+        if not self._is_built():
             raise Exception("Decision tree is not built")
-        if len(self.probs.keys()) != 0:  # Base case
+
+        if self._is_leaf():  # Base case
             return self.probs
 
         if Node._fulfills_criteria(object[self.col], self.value):
@@ -125,6 +161,10 @@ class Node():
 
     def _find_children(self, scoref, beta):
         """Divide a node and assign the partitions as children if necessary."""
+        if len(self.dataset) == 0:  # If dataset is empty, this is a leaf
+            self.probs = {}
+            return
+
         curr_impurity = scoref(self.dataset)
         best = (beta, None, None, None, None)
         for col in range(len(self.dataset[0]) - 1):
@@ -184,18 +224,50 @@ class Node():
             self.tc == other.tc and \
             self.fc == other.fc
 
+    def _is_leaf(self):
+        """Return True if the node is a leaf (has probs), False otherwise."""
+        return self.probs is not None
+
+    def _is_built(self):
+        """Return True if the decision tree has been built, False otherwise."""
+        return self.tc is not None or \
+            self.fc is not None or \
+            self._is_leaf()
+
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) != 2:
-        print("Use: python treepredict.py <input file>")
+        print("Use: python %s <input file>" % sys.argv[0])
         sys.exit(0)
 
     input = parsing.read_file(sys.argv[1])
-    test_performance(input, 0.5, gini, 0.2)
-    test_performance(input, 0.5, gini, 0.1)
-    test_performance(input, 0.5, gini, 0)
-    print("\n")
-    test_performance(input, 0.8, gini, 0.2)
-    test_performance(input, 0.5, gini, 0.2)
-    test_performance(input, 0.3, gini, 0.2)
+    tree = Node(input)
+
+    print("Test 1: change in performance for different betas")
+    print("| Beta | Top matches | Other matches | Failures |")
+    best_beta, less_failure = None, None
+    for beta in range(101):
+        res = test_performance(input, 0.5, gini, beta / 100.0)
+        print("| %3.2f | %10.2f%% | %12.2f%% | %7.2f%% |" % (
+            res['beta'],
+            res['top_matches'] * 100,
+            res['other_matches'] * 100,
+            res['failed_matches'] * 100
+        ))
+        if less_failure is None or res['failed_matches'] < less_failure:
+            best_beta, less_failure = res['beta'], res['failed_matches']
+
+    print("\nTest 2: change in performance for different training set size" +
+          "(beta=%.2f)" % best_beta)
+    print("| Training size | Test size | Top matches | Other matches | " +
+          "Failures |")
+    for set_size in range(11):
+        res = test_performance(input, set_size / 10.0, gini, best_beta)
+        print("| %13d | %9d | %10.2f%% | %12.2f%% | %7.2f%% |" % (
+            res['training_set_size'],
+            res['test_set_size'],
+            res['top_matches'] * 100,
+            res['other_matches'] * 100,
+            res['failed_matches'] * 100
+        ))
