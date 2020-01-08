@@ -90,9 +90,8 @@ class Node():
         """
         self._find_children(scoref, beta)
         count = 0
-        if self.tc is not None:
+        if not self._is_leaf():
             count += self.tc.build_tree(scoref, beta)
-        if self.fc is not None:
             count += self.fc.build_tree(scoref, beta)
         return 1 if count == 0 else count
 
@@ -107,11 +106,10 @@ class Node():
         while len(pending_nodes) > 0:
             node = pending_nodes.pop(0)
             node._find_children(scoref, beta)
-            if node.tc is None and node.fc is None:
+            if node._is_leaf():
                 count += 1
-            if node.tc is not None:
+            else:
                 pending_nodes.append(node.tc)
-            if node.fc is not None:
                 pending_nodes.append(node.fc)
         return count
 
@@ -196,6 +194,7 @@ class Node():
                 set2.append(row)
         return set1, set2
 
+    # ****** Auxiliary functions ******
     @staticmethod
     def _fulfills_criteria(tested, reference):
         """
@@ -242,7 +241,6 @@ if __name__ == '__main__':
         sys.exit(0)
 
     input = parsing.read_file(sys.argv[1])
-    tree = Node(input)
 
     print("Test 1: change in performance for different betas")
     print("| Beta | Top matches | Other matches | Failures |")
