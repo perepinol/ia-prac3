@@ -124,12 +124,13 @@ class Node():
 
         # Run prune on children
         pruned = self.tc.prune(scoref, threshold) + \
-                 self.fc.prune(scoref, threshold)
+            self.fc.prune(scoref, threshold)
 
         # If both children are leaves, see if they can be joined
         if self.tc._is_leaf() and self.fc._is_leaf():
             # Get impurity for the three nodes
-            imp, tc_imp, fc_imp = map(scoref,
+            imp, tc_imp, fc_imp = map(
+                scoref,
                 map(lambda n: n.dataset, [self, self.tc, self.fc])
             )
             # If change in impurity is below threshold, remove leaves
@@ -249,15 +250,18 @@ if __name__ == '__main__':
             res['other_matches'] * 100,
             res['failed_matches'] * 100
         ))
-        if best_beta is None or res['other_matches'] + res['failed_matches'] < less_failure:
-            best_beta, less_failure = res['beta'], res['other_matches'] + res['failed_matches']
+        if best_beta is None or \
+                res['other_matches'] + res['failed_matches'] < less_failure:
+            best_beta, less_failure = res['beta'], res['other_matches'] + \
+                res['failed_matches']
 
     print("\nTest 2: change in performance for different training set size" +
           "(beta=%.2f)" % best_beta)
     print("| Training size | Test size | Top matches | Other matches | " +
           "Failures |")
     for set_size in range(11):
-        res = test_performance(input, set_size / 10.0, gini_impurity, best_beta, rounds=1000)
+        res = test_performance(input, set_size / 10.0, gini_impurity,
+                               best_beta, rounds=1000)
         print("| %13d | %9d | %10.2f%% | %12.2f%% | %7.2f%% |" % (
             res['training_set_size'],
             res['test_set_size'],

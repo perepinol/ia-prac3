@@ -36,8 +36,6 @@ def entropy(dataset):
 
 def euclidean_sqr(p1, p2):
     """Calculate the squared euc. distance between two n-dimensional points."""
-    if len(p1) != len(p2):
-        return -1
     return sum(
         map(
             lambda pair: (pair[0] - pair[1]) ** 2,
@@ -54,8 +52,6 @@ def euclidean(p1, p2):
 
 def manhattan(p1, p2):
     """Calculate the manhattan distance between two n-dimensional points."""
-    if len(p1) != len(p2):
-        return -1
     return sum(
         map(
             lambda pair: abs(pair[0] - pair[1]),
@@ -82,4 +78,4 @@ def pearson(v1, v2):
     ) ** (1/2)
     if den == 0:
         return 0
-    return 1.0-num/den
+    return 1.0 - num / den
