@@ -18,12 +18,14 @@ def get_training_and_test_sets(dataset, training_ratio):
     return training_set, test_set
 
 
-def test_performance(dataset, training_ratio, scoref, beta, rounds=10000):
+def test_performance(dataset, training_ratio, scoref, beta, rounds=100):
     """Test the decision tree's performance."""
-    max_prob_success, success, failure = 0, 0, 0
+    max_prob_success, success, failure, tested = 0, 0, 0, 0
+    training, test = [], []
     for _ in range(rounds):
         # Split dataset and train decision tree
         training, test = get_training_and_test_sets(dataset, training_ratio)
+        tested += len(test)
         tree = Node(training)
         tree.build_tree(scoref, beta)
 
@@ -43,12 +45,6 @@ def test_performance(dataset, training_ratio, scoref, beta, rounds=10000):
             # If expected class is not first, it is simple match
             else:
                 success += 1
-
-        for elem in test:
-            probs = tree.classify(elem[:-1])
-
-    # Output results
-    tested = len(test) * rounds
 
     return {
         'function': str(scoref).split()[1],
@@ -253,15 +249,15 @@ if __name__ == '__main__':
             res['other_matches'] * 100,
             res['failed_matches'] * 100
         ))
-        if less_failure is None or res['failed_matches'] < less_failure:
-            best_beta, less_failure = res['beta'], res['failed_matches']
+        if best_beta is None or res['other_matches'] + res['failed_matches'] < less_failure:
+            best_beta, less_failure = res['beta'], res['other_matches'] + res['failed_matches']
 
     print("\nTest 2: change in performance for different training set size" +
           "(beta=%.2f)" % best_beta)
     print("| Training size | Test size | Top matches | Other matches | " +
           "Failures |")
     for set_size in range(11):
-        res = test_performance(input, set_size / 10.0, gini_impurity, best_beta)
+        res = test_performance(input, set_size / 10.0, gini_impurity, best_beta, rounds=1000)
         print("| %13d | %9d | %10.2f%% | %12.2f%% | %7.2f%% |" % (
             res['training_set_size'],
             res['test_set_size'],

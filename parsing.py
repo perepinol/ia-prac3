@@ -36,6 +36,8 @@ def read_file(filename, has_headers=False, rowsep='\t'):
                 lambda x: cast_str(x),
                 line.strip().split(rowsep)
             ))
+            if len(line) == 0:
+                continue
             if has_headers:
                 firstcol.append(line[0])
                 data.append(line[1:])
